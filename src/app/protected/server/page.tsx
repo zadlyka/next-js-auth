@@ -1,14 +1,13 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from 'next-auth'
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { signOut } from "next-auth/react";
 
 const ServerProtectedPage = async () => {
   const session = await getServerSession(authOptions)
   if(!session) {
     redirect('/')
   }
-
-  console.log(session)
   
   return (
     <section className="py-24">

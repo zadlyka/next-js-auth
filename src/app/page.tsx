@@ -9,7 +9,7 @@ export default function Home() {
       {
         username: e.target.username.value,
         password: e.target.password.value,
-        callbackUrl: `/protected/client`
+        callbackUrl: `/protected/server`
       }
     )
   }
@@ -80,6 +80,7 @@ export default function Home() {
                 Sign in
               </button>
               <button
+                onClick={()=>signIn('google', {callbackUrl: `/protected/server`})}
                 type="button"
                 className="border border-slate-200 flex w-full justify-center rounded-md bg-white px-3 py-1.5 text-sm font-semibold leading-6 text-black shadow-sm hover:bg-slate-100"
               >

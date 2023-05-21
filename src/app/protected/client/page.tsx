@@ -10,8 +10,6 @@ const ClientProtectPage = () => {
     },
   });
 
-  console.log(session)
-
   return (
     <div className="container">
       <h1 className="text-2xl font-bold">
