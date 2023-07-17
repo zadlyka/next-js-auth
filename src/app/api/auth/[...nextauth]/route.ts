@@ -1,12 +1,12 @@
-import NextAuth from "next-auth";
+import NextAuth, { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 
-export const authOptions = {
+export const authOptions: NextAuthOptions = {
   providers: [
     GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID || '',
-      clientSecret: process.env.GOOGLE_SECRET || '',
+      clientId: process.env.GOOGLE_CLIENT_ID as string,
+      clientSecret: process.env.GOOGLE_SECRET as string,
     }),
     CredentialsProvider({
       name: "Credentials",
@@ -15,69 +15,97 @@ export const authOptions = {
         password: {},
       },
       async authorize(credentials, req) {
-        const response = await fetch(`http://localhost:5000/auth`, {
+        const { username, password }: any = credentials;
+        let user: any = {};
+        const accessToken = await fetch(`${process.env.API_URL}/auth`, {
           method: "POST",
-          headers: {
-            Accept: "*/*",
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            username: credentials?.username,
-            password: credentials?.password,
+            username,
+            password,
           }),
         })
-          .then(async (response) => {
-            const data = await response.json()
-            return data;
+          .then((res) => res.json())
+          .then((data: any) => data.data.accessToken)
+          .catch((error: any) => console.log(error));
+
+        if (accessToken) {
+          user = await fetch(`${process.env.API_URL}/auth`, {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${accessToken}`,
+            },
           })
-          .catch((error) => {
-            return null;
-          });
-        return response;
+            .then((res) => res.json())
+            .then((data: any) => data.data)
+            .catch((error: any) => console.log(error));
+
+          return { ...user, accessToken };
+        }
+        return null;
       },
     }),
   ],
   callbacks: {
-    async jwt({ account, token, user }: any) {
-      if (user) {
-        token.accessToken = user.data.accessToken;
+    async jwt({ token, user, account }: any) {
+      if (account) {
+        const { provider, id_token } = account;
+        if (provider === "google") {
+          const accessToken = await fetch(
+            `${process.env.API_URL}/auth/google`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                token: id_token,
+              }),
+            }
+          )
+            .then((res) => res.json())
+            .then((data: any) => data.data.accessToken)
+            .catch((error: any) => console.log(error));
+
+          if (accessToken) {
+            token.accessToken = accessToken;
+            token.user = await fetch(`${process.env.API_URL}/auth`, {
+              method: "GET",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${accessToken}`,
+              },
+            })
+              .then((res) => res.json())
+              .then((data: any) => data.data)
+              .catch((error: any) => console.log(error));
+          }
+        } else if (provider === "credentials") {
+          token.user = user;
+          token.accessToken = user.accessToken;
+        }
       }
       return token;
     },
-
     async session({ session, token }: any) {
+      const { roles } = token.user;
+      const data = roles.map(({ id, name, permissions }: any) => ({
+        id,
+        name,
+        permissions,
+      }));
+      
       session.accessToken = token.accessToken;
+      session.user = {
+        id: token.user.id,
+        name: token.user.name,
+        email: token.user.email,
+        roles: data,
+      };
       return session;
     },
-
-    async signIn({ account, profile, user, credentials }: any) {
-      if(account.provider === "google") {
-        const { id_token } = account
-        const response = await fetch(`http://localhost:5000/oauth/google/token`, {
-          method: "POST",
-          headers: {
-            Accept: "*/*",
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            token: id_token
-          }),
-        })
-          .then(async (response) => {
-            const data = await response.json()
-            return data;
-          })
-          .catch((error) => {
-            return null;
-          });
-
-        if(response) {
-          user.data = response.data
-        }
-      }
-      return true;
-    },
-  }
+  },
 };
 
 const handler = NextAuth(authOptions);

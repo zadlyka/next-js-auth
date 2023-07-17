@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from 'next-auth'
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { signOut } from "next-auth/react";
 
 const ServerProtectedPage = async () => {
   const session = await getServerSession(authOptions)
@@ -18,6 +17,7 @@ const ServerProtectedPage = async () => {
         </h1>
         <h2 className="mt-4 font-medium">You are logged in as:</h2>
       </div>
+      {JSON.stringify(session)}
     </section>
   );
 };
